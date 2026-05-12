@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>모둠 평가 앱</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- React & Babel -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+
+  <!-- Firebase Compat -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
+
+  <style>
+    :root {
+      --primary-color: #2e7d32;
+      --primary-light: #4caf50;
+      --primary-dark: #1b5e20;
+      --secondary-color: #e8f5e9;
+      --text-main: #1a1a1a;
+      --text-muted: #555555;
+      --bg-color: #fcfdfc;
+      --white: #ffffff;
+      --border-color: #c8e6c9;
+      --shadow-sm: 0 2px 4px rgba(0,0,0,0.05);
+      --shadow-md: 0 4px 6px rgba(0,0,0,0.07);
+      --shadow-lg: 0 10px 15px rgba(0,0,0,0.1);
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 16px;
+      --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      line-height: 1.5;
+    }
+    .app-container { max-width: 800px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; }
+    .app-header {
+      padding: 1.5rem 2rem; background-color: var(--white);
+      border-bottom: 1px solid var(--border-color); box-shadow: var(--shadow-sm);
+    }
+    .app-header h1 { font-size: 1.5rem; color: var(--primary-dark); }
+    .app-content { flex: 1; padding: 2rem; display: flex; flex-direction: column; align-items: center; }
+    .fade-in { animation: fadeIn 0.5s var(--transition) forwards; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    
+    button {
+      cursor: pointer; border: none; border-radius: var(--radius-md);
+      font-weight: 600; padding: 0.75rem 1.5rem; transition: var(--transition);
+    }
+    .btn-primary { background-color: var(--primary-color); color: var(--white); box-shadow: var(--shadow-md); }
+    .btn-secondary { background-color: var(--secondary-color); color: var(--primary-dark); border: 1px solid var(--border-color); }
+    .btn-outline { background-color: transparent; color: var(--text-muted); border: 1px solid #e0e0e0; }
+    .btn-large { font-size: 1.125rem; padding: 1rem 2rem; width: 100%; max-width: 320px; }
+    
+    .home-screen { text-align: center; margin-top: 4rem; width: 100%; }
+    .home-screen h2 { font-size: 2rem; margin-bottom: 3rem; }
+    .home-buttons { display: flex; flex-direction: column; gap: 1.5rem; align-items: center; }
+    
+    .join-form, .create-form, .evaluate-form {
+      background: var(--white); padding: 2rem; border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-sm); border: 1px solid var(--border-color);
+      display: flex; flex-direction: column; gap: 1.5rem; width: 100%; text-align: left;
+    }
+    .text-input, .code-input {
+      padding: 0.8rem; border: 1px solid #e0e0e0; border-radius: var(--radius-md);
+      font-size: 1rem; width: 100%;
+    }
+    .code-input { font-size: 3rem; text-align: center; letter-spacing: 1rem; color: var(--primary-dark); font-weight: 700; }
+    .button-group { display: flex; gap: 1rem; width: 100%; }
+    .button-group button { flex: 1; }
+    
+    .screen-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
+    .badge { background: var(--primary-color); color: var(--white); padding: 0.4rem 0.8rem; border-radius: 20px; }
+    
+    .generated-code-box {
+      font-size: 4rem; font-weight: 700; color: var(--primary-dark); letter-spacing: 1.5rem;
+      margin: 2rem 0; padding: 2rem; background: var(--secondary-color);
+      border-radius: var(--radius-md); border: 2px dashed var(--primary-color);
+      display: inline-block; padding-left: 3.5rem; text-align: center;
+    }
+    .join-screen, .create-screen, .evaluate-screen, .dashboard-screen { width: 100%; max-width: 600px; text-align: center; margin-top: 2rem; }
+    .dashboard-screen { max-width: 800px; }
+    
+    .eval-target-card { background: var(--white); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.5rem; margin-bottom: 1.5rem; }
+    .score-options { display: flex; gap: 1rem; flex-wrap: wrap; }
+    .score-options label { background: var(--white); padding: 0.6rem 1rem; border: 1px solid #e0e0e0; border-radius: var(--radius-sm); cursor: pointer; }
+    .dashboard-stats { display: flex; justify-content: space-between; background: var(--white); padding: 1.5rem; border-radius: var(--radius-lg); border: 1px solid var(--border-color); }
+    .stat-value { font-size: 2.5rem; font-weight: 700; color: var(--primary-color); }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    // Firebase Setup
+    const firebaseConfig = {
+      apiKey: "AIzaSyB6ondc3ixzX9FNwB_RzcdmQyCW0RSaeVg",
+      authDomain: "studio-6524324946-b6314.firebaseapp.com",
+      projectId: "studio-6524324946-b6314",
+      storageBucket: "studio-6524324946-b6314.firebasestorage.app",
+      messagingSenderId: "1095632072504",
+      appId: "1:1095632072504:web:15a2f20910146f06195bcd"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    function App() {
+      const [view, setView] = useState('home');
+      const [joinCode, setJoinCode] = useState('');
+      const [createData, setCreateData] = useState({
+        title: '', groupCount: 6, selfEval: false, criteria: ['협동심', '발표 내용'], scoreType: '3level', useFeedback: true
+      });
+      const [generatedCode, setGeneratedCode] = useState(null);
+      const [activeEval, setActiveEval] = useState(null);
+      const [submissions, setSubmissions] = useState([]);
+
+      const goHome = () => { setView('home'); setGeneratedCode(null); setJoinCode(''); setActiveEval(null); };
+
+      const handleCreateSubmit = async (e) => {
+        e.preventDefault();
+        const code = Math.floor(1000 + Math.random() * 9000).toString();
+        try {
+          await db.collection("evaluations").doc(code).set({
+            ...createData, createdAt: new Date(), status: 'open'
+          });
+          setGeneratedCode(code);
+          setJoinCode(code);
+          setActiveEval(createData);
+        } catch (error) { alert('오류: ' + error.message); }
+      };
+
+      const handleJoinSubmit = async (e) => {
+        e.preventDefault();
+        try {
+          const doc = await db.collection("evaluations").doc(joinCode).get();
+          if (doc.exists) {
+            setActiveEval(doc.data());
+            setView('evaluate');
+          } else alert('존재하지 않는 코드입니다.');
+        } catch (error) { alert('오류: ' + error.message); }
+      };
+
+      const handleEvaluateSubmit = async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const evaluatorGroup = formData.get('evaluatorGroup');
+        const result = { evaluatorGroup: parseInt(evaluatorGroup), scores: {}, feedbacks: {} };
+
+        for (let t = 0; t < activeEval.groupCount; t++) {
+          if (!activeEval.selfEval && t + 1 === parseInt(evaluatorGroup)) continue;
+          result.scores[t] = {};
+          for (let c = 0; c < activeEval.criteria.length; c++) {
+            const score = formData.get(`g${t}_c${c}`);
+            if (score) result.scores[t][c] = parseInt(score);
+          }
+        }
+        await db.collection("evaluations").doc(joinCode).collection("submissions").add(result);
+        alert('성공적으로 제출되었습니다!');
+        goHome();
+      };
+
+      useEffect(() => {
+        if (view === 'dashboard' && joinCode) {
+          return db.collection("evaluations").doc(joinCode).collection("submissions")
+            .onSnapshot(snap => {
+              const subs = [];
+              snap.forEach(doc => subs.push(doc.data()));
+              setSubmissions(subs);
+            });
+        }
+      }, [view, joinCode]);
+
+      return (
+        <div className="app-container">
+          <header className="app-header"><h1 onClick={goHome} style={{cursor:'pointer'}}>모둠 평가 앱</h1></header>
+          <main className="app-content">
+            {view === 'home' && (
+              <div className="home-screen fade-in">
+                <h2>어떤 작업을 진행하시겠습니까?</h2>
+                <div className="home-buttons">
+                  <button className="btn-primary btn-large" onClick={() => setView('join')}>평가 참여하기</button>
+                  <button className="btn-secondary btn-large" onClick={() => setView('create')}>평가 만들기 (교사용)</button>
+                </div>
+              </div>
+            )}
+            
+            {view === 'create' && !generatedCode && (
+              <div className="create-screen fade-in">
+                <h2>새로운 평가 만들기</h2>
+                <form className="create-form" onSubmit={handleCreateSubmit}>
+                  <label>평가 제목</label>
+                  <input type="text" className="text-input" value={createData.title} onChange={e => setCreateData({...createData, title: e.target.value})} required/>
+                  <div className="button-group">
+                    <button type="button" className="btn-outline" onClick={goHome}>취소</button>
+                    <button type="submit" className="btn-primary">생성하기</button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            {view === 'create' && generatedCode && (
+              <div className="code-result-screen fade-in" style={{textAlign: 'center', marginTop: '2rem'}}>
+                <h2>평가 코드가 생성되었습니다!</h2>
+                <div className="generated-code-box">{generatedCode}</div>
+                <div className="button-group">
+                  <button className="btn-primary" onClick={() => setView('dashboard')}>대시보드 입장</button>
+                </div>
+              </div>
+            )}
+
+            {view === 'join' && (
+              <div className="join-screen fade-in">
+                <h2>참여 코드 입력</h2>
+                <form className="join-form" onSubmit={handleJoinSubmit}>
+                  <input type="text" className="code-input" maxLength="4" value={joinCode} onChange={e => setJoinCode(e.target.value)} required/>
+                  <button type="submit" className="btn-primary">입장</button>
+                </form>
+              </div>
+            )}
+
+            {view === 'evaluate' && activeEval && (
+              <div className="evaluate-screen fade-in">
+                <h2>{activeEval.title}</h2>
+                <form className="evaluate-form" onSubmit={handleEvaluateSubmit}>
+                  <label>우리 모둠 선택</label>
+                  <select name="evaluatorGroup" className="text-input" required>
+                    {Array.from({length: activeEval.groupCount}).map((_, i) => <option key={i} value={i+1}>{i+1}모둠</option>)}
+                  </select>
+                  <button type="submit" className="btn-primary">제출하기</button>
+                </form>
+              </div>
+            )}
+
+            {view === 'dashboard' && activeEval && (
+              <div className="dashboard-screen fade-in">
+                <div className="screen-header">
+                  <h2>{activeEval.title} 대시보드</h2>
+                  <span className="badge">코드: {joinCode}</span>
+                </div>
+                <div className="dashboard-stats">
+                  <div className="stat-card">
+                    <span className="stat-value">{submissions.length} / {activeEval.groupCount}</span>
+                    <span className="stat-label">제출 완료 모둠</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </main>
+        </div>
+      );
+    }
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
