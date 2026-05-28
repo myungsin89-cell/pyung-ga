@@ -271,6 +271,14 @@ button:active {
   font-size: 0.95rem;
 }
 
+.form-group-description {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+  margin-top: -0.2rem;
+  margin-bottom: 0.2rem;
+}
+
 .form-row {
   display: flex;
   gap: 1.5rem;

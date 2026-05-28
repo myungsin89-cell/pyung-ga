@@ -118,7 +118,8 @@ function App() {
     selfEval: false,
     criteria: ['협동심', '발표 내용'],
     scoreType: '3level',
-    useFeedback: true
+    groupQuestions: ['이 모둠의 잘한 점이나 피드백을 적어주세요.'],
+    allQuestions: []
   });
   const [generatedCode, setGeneratedCode] = useState(null);
   const [activeEval, setActiveEval] = useState(null);
@@ -135,7 +136,8 @@ function App() {
     setActiveEval(null);
     setSubmissions([]);
     setScoreState({});
-    setFeedbackState({});
+    setGroupFeedbackState({});
+    setAllFeedbackState({});
     setEvaluatorGroup('');
     setSelectedFeedbackGroup(0);
     setExistingSubmission(null);
@@ -154,6 +156,40 @@ function App() {
   const handleRemoveCriteria = (index) => {
     const newCriteria = createData.criteria.filter((_, i) => i !== index);
     setCreateData({ ...createData, criteria: newCriteria });
+  };
+
+  const handleAddGroupQuestion = () => {
+    setCreateData(prev => ({ ...prev, groupQuestions: [...(prev.groupQuestions || []), ''] }));
+  };
+  const handleGroupQuestionChange = (index, value) => {
+    setCreateData(prev => {
+      const newQuestions = [...(prev.groupQuestions || [])];
+      newQuestions[index] = value;
+      return { ...prev, groupQuestions: newQuestions };
+    });
+  };
+  const handleRemoveGroupQuestion = (index) => {
+    setCreateData(prev => ({
+      ...prev,
+      groupQuestions: (prev.groupQuestions || []).filter((_, i) => i !== index)
+    }));
+  };
+
+  const handleAddAllQuestion = () => {
+    setCreateData(prev => ({ ...prev, allQuestions: [...(prev.allQuestions || []), ''] }));
+  };
+  const handleAllQuestionChange = (index, value) => {
+    setCreateData(prev => {
+      const newQuestions = [...(prev.allQuestions || [])];
+      newQuestions[index] = value;
+      return { ...prev, allQuestions: newQuestions };
+    });
+  };
+  const handleRemoveAllQuestion = (index) => {
+    setCreateData(prev => ({
+      ...prev,
+      allQuestions: (prev.allQuestions || []).filter((_, i) => i !== index)
+    }));
   };
 
   const handleCreateSubmit = async (e) => {
@@ -202,8 +238,24 @@ function App() {
         if (data.criteria && !Array.isArray(data.criteria)) {
           data.criteria = Object.values(data.criteria);
         }
+        if (data.groupQuestions) {
+          if (!Array.isArray(data.groupQuestions)) {
+            data.groupQuestions = Object.values(data.groupQuestions);
+          }
+        } else if (data.useFeedback) {
+          data.groupQuestions = ['평가 의견'];
+        } else {
+          data.groupQuestions = [];
+        }
+        if (data.allQuestions) {
+          if (!Array.isArray(data.allQuestions)) {
+            data.allQuestions = Object.values(data.allQuestions);
+          }
+        } else {
+          data.allQuestions = [];
+        }
         setActiveEval(data);
-        setView('evaluate');
+        setView('select-group');
       } else {
         alert('존재하지 않는 코드입니다. 다시 확인해주세요.');
       }
@@ -216,18 +268,20 @@ function App() {
 
   // ---- 평가 점수 상태 (라디오 대신 state로 관리) ----
   const [scoreState, setScoreState] = useState({});
-  const [feedbackState, setFeedbackState] = useState({});
+  const [groupFeedbackState, setGroupFeedbackState] = useState({});
+  const [allFeedbackState, setAllFeedbackState] = useState({});
   const [evaluatorGroup, setEvaluatorGroup] = useState('');
   const [isCheckingDuplicate, setIsCheckingDuplicate] = useState(false);
   const [evalError, setEvalError] = useState(''); // 평가 제출 오류 메시지
 
-  // 모둥 선택 시 중복 제출 여부 확인 후 기존 데이터 폼에 치형
+  // 모둠 선택 시 중복 제출 여부 확인 후 기존 데이터 폼에 채움
   const handleGroupSelect = async (groupNum) => {
     setEvaluatorGroup(groupNum);
     setExistingSubmission(null);
     setExistingSubmissionKey(null);
     setScoreState({});
-    setFeedbackState({});
+    setGroupFeedbackState({});
+    setAllFeedbackState({});
     setEvalError('');
     if (!groupNum) return;
     setIsCheckingDuplicate(true);
@@ -247,12 +301,29 @@ function App() {
               });
             });
             setScoreState(newScoreState);
-            // 기존 피드백을 feedbackState에 불러오기
-            const newFeedback = {};
-            Object.entries(sub.feedbacks || {}).forEach(([tIdx, text]) => {
-              newFeedback[parseInt(tIdx)] = text;
-            });
-            setFeedbackState(newFeedback);
+            
+            // 기존 모둠 피드백 불러오기
+            const newGroupFeedback = {};
+            if (sub.groupFeedbacks) {
+              Object.entries(sub.groupFeedbacks).forEach(([tIdx, questionsObj]) => {
+                newGroupFeedback[tIdx] = { ...questionsObj };
+              });
+            } else if (sub.feedbacks) {
+              // 하위 호환성 (구버전 피드백)
+              Object.entries(sub.feedbacks).forEach(([tIdx, text]) => {
+                newGroupFeedback[tIdx] = { 0: text };
+              });
+            }
+            setGroupFeedbackState(newGroupFeedback);
+
+            // 기존 전체 피드백 불러오기
+            const newAllFeedback = {};
+            if (sub.allFeedbacks) {
+              Object.entries(sub.allFeedbacks).forEach(([qIdx, text]) => {
+                newAllFeedback[qIdx] = text;
+              });
+            }
+            setAllFeedbackState(newAllFeedback);
           }
         });
       }
@@ -275,7 +346,7 @@ function App() {
     e.preventDefault();
     setEvalError('');
     if (!evaluatorGroup) {
-      setEvalError('⚠️ 우리 모둥을 먼저 선택해주세요!');
+      setEvalError('⚠️ 우리 모둠을 먼저 선택해주세요!');
       return;
     }
 
@@ -300,7 +371,8 @@ function App() {
     const result = {
       evaluatorGroup: parseInt(evaluatorGroup),
       scores: {},
-      feedbacks: feedbackState,
+      groupFeedbacks: groupFeedbackState,
+      allFeedbacks: allFeedbackState,
       submittedAt: Date.now()
     };
 
@@ -441,6 +513,22 @@ function App() {
                   if (data.criteria && !Array.isArray(data.criteria)) {
                     data.criteria = Object.values(data.criteria);
                   }
+                  if (data.groupQuestions) {
+                    if (!Array.isArray(data.groupQuestions)) {
+                      data.groupQuestions = Object.values(data.groupQuestions);
+                    }
+                  } else if (data.useFeedback) {
+                    data.groupQuestions = ['평가 의견'];
+                  } else {
+                    data.groupQuestions = [];
+                  }
+                  if (data.allQuestions) {
+                    if (!Array.isArray(data.allQuestions)) {
+                      data.allQuestions = Object.values(data.allQuestions);
+                    }
+                  } else {
+                    data.allQuestions = [];
+                  }
                   setActiveEval(data);
                   setView('dashboard');
                 } else {
@@ -502,16 +590,28 @@ function App() {
                         onChange={(e) => setCreateData({ ...createData, groupCount: parseInt(e.target.value) })}
                       />
                     </div>
-                    <div className="form-group checkbox-group">
-                      <label>
-                        <input
-                          type="checkbox"
-                          checked={createData.selfEval}
-                          onChange={(e) => setCreateData({ ...createData, selfEval: e.target.checked })}
-                        />
-                        자기 모둠 평가 허용
-                      </label>
+                    <div className="form-group">
+                      <label>채점 방식</label>
+                      <select
+                        className="text-input"
+                        value={createData.scoreType}
+                        onChange={(e) => setCreateData({ ...createData, scoreType: e.target.value })}
+                      >
+                        <option value="3level">3단계 기호 (◎ 3점 / ○ 2점 / △ 1점)</option>
+                        <option value="5star">5점 만점 별점 (1~5점)</option>
+                      </select>
                     </div>
+                  </div>
+
+                  <div className="form-group checkbox-group" style={{ borderBottom: '1px dashed var(--border-color)', paddingBottom: '1rem' }}>
+                    <label style={{ display: 'inline-flex', alignItems: 'center', marginTop: 0 }}>
+                      <input
+                        type="checkbox"
+                        checked={createData.selfEval}
+                        onChange={(e) => setCreateData({ ...createData, selfEval: e.target.checked })}
+                      />
+                      자기 모둠 평가 허용
+                    </label>
                   </div>
 
                   <div className="form-group">
@@ -537,27 +637,54 @@ function App() {
                     </button>
                   </div>
 
-                  <div className="form-group">
-                    <label>채점 방식</label>
-                    <select
-                      className="text-input"
-                      value={createData.scoreType}
-                      onChange={(e) => setCreateData({ ...createData, scoreType: e.target.value })}
-                    >
-                      <option value="3level">3단계 기호 (쌍동그라미 3점 / 동그라미 2점 / 세모 1점)</option>
-                      <option value="5star">5점 만점 별점 (1~5점)</option>
-                    </select>
+                  <div className="form-group" style={{ borderTop: '1px dashed var(--border-color)', paddingTop: '1rem' }}>
+                    <label>모둠별 서술형 질문 설정 (선택)</label>
+                    <p className="form-group-description">
+                      각 모둠을 평가할 때 개별적으로 입력받을 주관식 질문입니다.
+                    </p>
+                    <div className="criteria-list">
+                      {createData.groupQuestions && createData.groupQuestions.map((qText, idx) => (
+                        <div key={idx} className="criteria-item">
+                          <input
+                            type="text"
+                            className="text-input"
+                            value={qText}
+                            onChange={(e) => handleGroupQuestionChange(idx, e.target.value)}
+                            placeholder="예: 이 모둠의 좋았던 점과 그 이유는?"
+                            required
+                          />
+                          <button type="button" className="btn-outline btn-small" onClick={() => handleRemoveGroupQuestion(idx)}>삭제</button>
+                        </div>
+                      ))}
+                    </div>
+                    <button type="button" className="btn-secondary btn-small add-btn" onClick={handleAddGroupQuestion}>
+                      + 질문 추가
+                    </button>
                   </div>
 
-                  <div className="form-group checkbox-group">
-                    <label>
-                      <input
-                        type="checkbox"
-                        checked={createData.useFeedback}
-                        onChange={(e) => setCreateData({ ...createData, useFeedback: e.target.checked })}
-                      />
-                      학생들에게 서술형 평가 의견(이유 등) 입력 받기
-                    </label>
+                  <div className="form-group" style={{ borderBottom: '1px dashed var(--border-color)', paddingBottom: '1rem' }}>
+                    <label>전체 대상 서술형 질문 설정 (선택)</label>
+                    <p className="form-group-description">
+                      모든 모둠 평가가 끝난 후 마지막에 한 번만 답하는 공통 질문입니다. (예: 베스트 학생/기여객 추천, 전체 소감)
+                    </p>
+                    <div className="criteria-list">
+                      {createData.allQuestions && createData.allQuestions.map((qText, idx) => (
+                        <div key={idx} className="criteria-item">
+                          <input
+                            type="text"
+                            className="text-input"
+                            value={qText}
+                            onChange={(e) => handleAllQuestionChange(idx, e.target.value)}
+                            placeholder="예: 오늘 전체 발표에서 가장 활약한 베스트 학생은 누구인가요?"
+                            required
+                          />
+                          <button type="button" className="btn-outline btn-small" onClick={() => handleRemoveAllQuestion(idx)}>삭제</button>
+                        </div>
+                      ))}
+                    </div>
+                    <button type="button" className="btn-secondary btn-small add-btn" onClick={handleAddAllQuestion}>
+                      + 질문 추가
+                    </button>
                   </div>
 
                   <div className="button-group" style={{ marginTop: '2rem' }}>
@@ -582,31 +709,86 @@ function App() {
           </div>
         )}
 
-        {/* EVALUATE (Student) */}
-        {view === 'evaluate' && activeEval && (
-          <div className="evaluate-screen fade-in">
-            <div className="screen-header">
-              <h2>{activeEval.title}</h2>
-              <span className="badge">코드: {joinCode}</span>
-            </div>
-
-            <form className="evaluate-form" onSubmit={handleEvaluateSubmit}>
-              <div className="form-group" style={{ background: 'var(--white)', padding: '1.5rem', borderRadius: '10px', border: '1px solid var(--primary-color)', marginBottom: '1.5rem' }}>
-                <label style={{ fontSize: '1.1rem', color: 'var(--primary-dark)', marginBottom: '0.5rem', display: 'block' }}>
-                  우리 모둠을 선택하세요
-                </label>
-                <select className="text-input" value={evaluatorGroup} onChange={(e) => handleGroupSelect(e.target.value)}>
-                  <option value="" disabled>모둠 선택</option>
+        {/* SELECT GROUP (Student) */}
+        {view === 'select-group' && activeEval && (
+          <div className="join-screen fade-in">
+            <h2>우리 모둠 선택</h2>
+            <p className="subtitle">{activeEval.title}에 참여합니다.<br />본인의 모둠을 선택해주세요.</p>
+            
+            <div className="join-form" style={{ gap: '1.5rem', width: '100%', maxWidth: '400px' }}>
+              <div className="form-group" style={{ width: '100%', textAlign: 'left' }}>
+                <label style={{ fontSize: '1rem', color: 'var(--primary-dark)', fontWeight: 600 }}>모둠 선택</label>
+                <select 
+                  className="text-input" 
+                  style={{ width: '100%', marginTop: '0.5rem' }} 
+                  value={evaluatorGroup} 
+                  onChange={(e) => handleGroupSelect(e.target.value)}
+                >
+                  <option value="" disabled>모둠을 선택하세요</option>
                   {Array.from({ length: activeEval.groupCount }).map((_, i) => (
                     <option key={i} value={i + 1}>{i + 1}모둠</option>
                   ))}
                 </select>
                 {isCheckingDuplicate && (
-                  <p style={{ marginTop: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>확인 중...</p>
+                  <p style={{ marginTop: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>제출 내역 확인 중...</p>
                 )}
               </div>
 
-              {/* 이미 제출한 경우: 폼에 기존 답변이 채워지므로 안내만 표시 */}
+              {existingSubmission && (
+                <div style={{ 
+                  background: '#e8f5e9', 
+                  border: '1px solid var(--primary-light)', 
+                  borderRadius: 'var(--radius-md)', 
+                  padding: '0.85rem 1.25rem', 
+                  width: '100%', 
+                  textAlign: 'left',
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '0.5rem' 
+                }}>
+                  <span style={{ fontSize: '1.2rem' }}>✏️</span>
+                  <span style={{ color: 'var(--primary-dark)', fontWeight: 600, fontSize: '0.9rem' }}>
+                    이전에 제출한 평가가 있습니다. 입장 후 내용을 수정할 수 있습니다.
+                  </span>
+                </div>
+              )}
+
+              <div className="button-group">
+                <button type="button" className="btn-outline" onClick={() => {
+                  setEvaluatorGroup('');
+                  setExistingSubmission(null);
+                  setExistingSubmissionKey(null);
+                  setScoreState({});
+                  setGroupFeedbackState({});
+                  setAllFeedbackState({});
+                  setView('join');
+                }}>뒤로가기</button>
+                <button 
+                  type="button" 
+                  className="btn-primary" 
+                  disabled={!evaluatorGroup || isCheckingDuplicate}
+                  onClick={() => setView('evaluate')}
+                >
+                  {existingSubmission ? '평가 수정하기' : '평가 시작하기'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* EVALUATE (Student) */}
+        {view === 'evaluate' && activeEval && (
+          <div className="evaluate-screen fade-in">
+            <div className="screen-header">
+              <h2>{activeEval.title}</h2>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <span className="badge" style={{ background: 'var(--primary-dark)' }}>우리 모둠: {evaluatorGroup}모둠</span>
+                <span className="badge">코드: {joinCode}</span>
+              </div>
+            </div>
+
+            <form className="evaluate-form" onSubmit={handleEvaluateSubmit}>
+              {/* 이미 제출한 경우: 안내만 표시 */}
               {existingSubmission && (
                 <div style={{ background: '#e8f5e9', border: '1px solid var(--primary-light)', borderRadius: 'var(--radius-md)', padding: '0.85rem 1.25rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <span style={{ fontSize: '1.2rem' }}>✏️</span>
@@ -617,43 +799,109 @@ function App() {
               )}
 
               <div className="evaluation-list">
-                {Array.from({ length: activeEval.groupCount }).map((_, targetIdx) => (
-                  <div key={targetIdx} className="eval-target-card">
-                    <h3>{targetIdx + 1}모둠 평가</h3>
-                    {activeEval.criteria.map((criterion, cIdx) => (
-                      <div key={cIdx} className="eval-criterion">
-                        <label>{criterion}</label>
-                        <div className="score-options">
-                          {activeEval.scoreType === '3level' ? (
-                            <>
-                              <ScoreButton label="◎ (3점)" value="3" selected={scoreState[`${targetIdx}_${cIdx}`] === '3'} onClick={() => setScore(targetIdx, cIdx, '3')} />
-                              <ScoreButton label="○ (2점)" value="2" selected={scoreState[`${targetIdx}_${cIdx}`] === '2'} onClick={() => setScore(targetIdx, cIdx, '2')} />
-                              <ScoreButton label="△ (1점)" value="1" selected={scoreState[`${targetIdx}_${cIdx}`] === '1'} onClick={() => setScore(targetIdx, cIdx, '1')} />
-                            </>
-                          ) : (
-                            <StarRating
-                              value={scoreState[`${targetIdx}_${cIdx}`] ? Number(scoreState[`${targetIdx}_${cIdx}`]) : 0}
-                              onChange={(val) => setScore(targetIdx, cIdx, String(val))}
-                            />
-                          )}
+                {Array.from({ length: activeEval.groupCount }).map((_, targetIdx) => {
+                  // 자기 모둠 평가가 비허용되었고, 자기 모둠 카드이면 렌더링 건너뜀
+                  if (!activeEval.selfEval && targetIdx + 1 === parseInt(evaluatorGroup)) return null;
+
+                  return (
+                    <div key={targetIdx} className="eval-target-card">
+                      <h3>{targetIdx + 1}모둠 평가</h3>
+                      {activeEval.criteria.map((criterion, cIdx) => (
+                        <div key={cIdx} className="eval-criterion">
+                          <label>{criterion}</label>
+                          <div className="score-options">
+                            {activeEval.scoreType === '3level' ? (
+                              <>
+                                <ScoreButton label="◎ (3점)" value="3" selected={scoreState[`${targetIdx}_${cIdx}`] === '3'} onClick={() => setScore(targetIdx, cIdx, '3')} />
+                                <ScoreButton label="○ (2점)" value="2" selected={scoreState[`${targetIdx}_${cIdx}`] === '2'} onClick={() => setScore(targetIdx, cIdx, '2')} />
+                                <ScoreButton label="△ (1점)" value="1" selected={scoreState[`${targetIdx}_${cIdx}`] === '1'} onClick={() => setScore(targetIdx, cIdx, '1')} />
+                              </>
+                            ) : (
+                              <StarRating
+                                value={scoreState[`${targetIdx}_${cIdx}`] ? Number(scoreState[`${targetIdx}_${cIdx}`]) : 0}
+                                onChange={(val) => setScore(targetIdx, cIdx, String(val))}
+                              />
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                    {activeEval.useFeedback && (
-                      <div className="eval-feedback">
-                        <label style={{ fontWeight: 600, display: 'block', marginBottom: '0.5rem' }}>평가 의견 (선택)</label>
+                      ))}
+
+                      {/* 모둠별 서술형 질문 입력란 */}
+                      {activeEval.groupQuestions && activeEval.groupQuestions.length > 0 && (
+                        <div className="eval-feedback" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1rem' }}>
+                          {activeEval.groupQuestions.map((qText, qIdx) => (
+                            <div key={qIdx}>
+                              <label style={{ fontWeight: 600, display: 'block', marginBottom: '0.3rem', fontSize: '0.9rem', color: 'var(--text-muted)' }}>
+                                {qText} (선택)
+                              </label>
+                              <textarea
+                                className="text-input"
+                                placeholder="답변을 자유롭게 적어주세요."
+                                rows="2"
+                                style={{ width: '100%' }}
+                                value={(groupFeedbackState[targetIdx] && groupFeedbackState[targetIdx][qIdx]) || ''}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setGroupFeedbackState(prev => {
+                                    const groupData = prev[targetIdx] ? { ...prev[targetIdx] } : {};
+                                    groupData[qIdx] = val;
+                                    return { ...prev, [targetIdx]: groupData };
+                                  });
+                                }}
+                              ></textarea>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* 전체 대상 서술형 질문 입력란 */}
+              {activeEval.allQuestions && activeEval.allQuestions.length > 0 && (
+                <div style={{
+                  background: 'var(--white)',
+                  border: '1px solid var(--primary-color)',
+                  borderRadius: 'var(--radius-lg)',
+                  padding: '1.5rem',
+                  boxShadow: 'var(--shadow-sm)',
+                  marginBottom: '1.5rem'
+                }}>
+                  <h3 style={{
+                    color: 'var(--primary-dark)',
+                    marginBottom: '1.2rem',
+                    fontSize: '1.2rem',
+                    borderBottom: '2px solid var(--secondary-color)',
+                    padding: '0.5rem 0'
+                  }}>
+                    전체 공통 질문 평가
+                  </h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    {activeEval.allQuestions.map((qText, qIdx) => (
+                      <div key={qIdx}>
+                        <label style={{ fontWeight: 600, display: 'block', marginBottom: '0.4rem', color: 'var(--text-main)' }}>
+                          {qText} (선택)
+                        </label>
                         <textarea
                           className="text-input"
-                          placeholder={`${targetIdx + 1}모둠에 대한 의견을 자유롭게 적어주세요.`}
-                          rows="2"
-                          value={feedbackState[targetIdx] || ''}
-                          onChange={(e) => setFeedbackState(prev => ({ ...prev, [targetIdx]: e.target.value }))}
+                          placeholder="답변을 자유롭게 적어주세요."
+                          rows="3"
+                          style={{ width: '100%' }}
+                          value={allFeedbackState[qIdx] || ''}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setAllFeedbackState(prev => ({
+                              ...prev,
+                              [qIdx]: val
+                            }));
+                          }}
                         ></textarea>
                       </div>
-                    )}
+                    ))}
                   </div>
-                ))}
-              </div>
+                </div>
+              )}
 
               <div className="button-group" style={{ marginTop: '2rem', flexDirection: 'column', gap: '1rem' }}>
                 {evalError && (
@@ -671,7 +919,7 @@ function App() {
                   </div>
                 )}
                 <div style={{ display: 'flex', gap: '1rem', width: '100%' }}>
-                  <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={goHome}>취소</button>
+                  <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={() => setView('select-group')}>뒤로가기</button>
                   <button type="submit" className="btn-primary" style={{ flex: 1 }} disabled={isLoading}>
                     {isLoading ? '제출 중...' : existingSubmission ? '평가 수정하기' : '평가 제출하기'}
                   </button>
@@ -735,51 +983,217 @@ function App() {
                 })}
               </div>
 
-              {/* 피드백 패널: 카드 클릭 시 아래에 펼침 */}
-              {activeEval.useFeedback && selectedFeedbackGroup !== null && (
+              {/* 피드백 및 점수 상세 패널: 카드 클릭 시 아래에 펼침 */}
+              {selectedFeedbackGroup !== null && (
                 <div style={{
                   marginTop: '1.5rem',
                   padding: '1.5rem',
                   background: 'var(--secondary-color)',
                   borderRadius: 'var(--radius-lg)',
                   border: '1px solid var(--primary-light)',
-                  animation: 'fadeIn 0.3s ease'
+                  animation: 'fadeIn 0.3s ease',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '1.5rem'
                 }}>
-                  <h4 style={{ color: 'var(--primary-dark)', marginBottom: '1rem', fontSize: '1.1rem' }}>
-                    {selectedFeedbackGroup + 1}모둠이 받은 피드백
+                  <h4 style={{ color: 'var(--primary-dark)', fontSize: '1.25rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', margin: 0 }}>
+                    {selectedFeedbackGroup + 1}모둠 상세 평가 결과
                   </h4>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                    {(() => {
-                      const cards = submissions
-                        .filter(sub => sub.feedbacks && sub.feedbacks[selectedFeedbackGroup])
-                        .map((sub, i) => (
-                          <div key={i} style={{
-                            background: 'var(--white)',
-                            border: '1px solid var(--border-color)',
-                            borderRadius: 'var(--radius-md)',
-                            padding: '1rem 1.25rem',
-                            boxShadow: 'var(--shadow-sm)',
-                            borderLeft: '4px solid var(--primary-color)'
-                          }}>
-                            <div style={{ fontWeight: 700, color: 'var(--primary-dark)', marginBottom: '0.4rem', fontSize: '0.85rem' }}>
-                              {sub.evaluatorGroup}모둠의 평가
+
+                  {/* 1. 세부 점수 내역 */}
+                  <div style={{
+                    background: 'var(--white)',
+                    padding: '1.2rem',
+                    borderRadius: 'var(--radius-md)',
+                    boxShadow: 'var(--shadow-sm)',
+                    border: '1px solid var(--border-color)'
+                  }}>
+                    <h5 style={{ fontWeight: 700, color: 'var(--primary-dark)', marginBottom: '0.8rem', fontSize: '0.95rem' }}>
+                      📊 모둠별 세부 채점 내역
+                    </h5>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                      {(() => {
+                        const targetSubmissions = submissions.filter(sub => sub.scores && sub.scores[selectedFeedbackGroup] !== undefined);
+                        if (targetSubmissions.length === 0) {
+                          return <p style={{ color: '#aaa', fontSize: '0.85rem' }}>아직 채점한 모둠이 없습니다.</p>;
+                        }
+                        return targetSubmissions.map((sub, i) => {
+                          const criteriaScores = sub.scores[selectedFeedbackGroup];
+                          const totalGiven = Object.values(criteriaScores).reduce((a, b) => a + b, 0);
+                          
+                          return (
+                            <div key={i} style={{
+                              padding: '0.8rem 1rem',
+                              background: 'var(--bg-color)',
+                              borderRadius: 'var(--radius-sm)',
+                              borderLeft: '4px solid var(--primary-color)',
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              flexWrap: 'wrap',
+                              gap: '0.5rem'
+                            }}>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                                <span style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--text-main)' }}>
+                                  {sub.evaluatorGroup}모둠의 채점
+                                </span>
+                                <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                                  {activeEval.criteria.map((cName, cIdx) => {
+                                    const scoreVal = criteriaScores[cIdx];
+                                    let scoreStr = `${scoreVal}점`;
+                                    if (activeEval.scoreType === '3level') {
+                                      if (scoreVal === 3) scoreStr = '◎ (3점)';
+                                      else if (scoreVal === 2) scoreStr = '○ (2점)';
+                                      else if (scoreVal === 1) scoreStr = '△ (1점)';
+                                    }
+                                    return `${cName}: ${scoreStr}`;
+                                  }).join(' / ')}
+                                </span>
+                              </div>
+                              <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--primary-dark)' }}>
+                                합계: {totalGiven}점
+                              </div>
                             </div>
-                            <div style={{ color: 'var(--text-main)', lineHeight: '1.65' }}>
-                              {sub.feedbacks[selectedFeedbackGroup]}
+                          );
+                        });
+                      })()}
+                    </div>
+                  </div>
+
+                  {/* 2. 서술형 피드백 내역 */}
+                  {activeEval.groupQuestions && activeEval.groupQuestions.length > 0 && (
+                    <div>
+                      <h5 style={{ fontWeight: 700, color: 'var(--primary-dark)', marginBottom: '0.8rem', fontSize: '0.95rem' }}>
+                        💬 서술형 피드백 의견
+                      </h5>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        {activeEval.groupQuestions.map((qText, qIdx) => {
+                          const answers = submissions
+                            .filter(sub => {
+                              if (sub.groupFeedbacks && sub.groupFeedbacks[selectedFeedbackGroup] && sub.groupFeedbacks[selectedFeedbackGroup][qIdx]) {
+                                return true;
+                              }
+                              if (qIdx === 0 && sub.feedbacks && sub.feedbacks[selectedFeedbackGroup]) {
+                                return true;
+                              }
+                              return false;
+                            })
+                            .map(sub => {
+                              const text = sub.groupFeedbacks
+                                ? sub.groupFeedbacks[selectedFeedbackGroup][qIdx]
+                                : sub.feedbacks[selectedFeedbackGroup];
+                              return {
+                                evaluatorGroup: sub.evaluatorGroup,
+                                text: text
+                              };
+                            });
+
+                          return (
+                            <div key={qIdx} style={{
+                              background: 'var(--white)',
+                              padding: '1.2rem',
+                              borderRadius: 'var(--radius-md)',
+                              boxShadow: 'var(--shadow-sm)',
+                              border: '1px solid var(--border-color)'
+                            }}>
+                              <h6 style={{ fontWeight: 700, color: 'var(--text-main)', marginBottom: '0.6rem', fontSize: '0.9rem' }}>
+                                질문 {qIdx + 1}: {qText}
+                              </h6>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                {answers.length > 0 ? (
+                                  answers.map((ans, i) => (
+                                    <div key={i} style={{
+                                      padding: '0.5rem 0.75rem',
+                                      background: 'var(--bg-color)',
+                                      borderRadius: 'var(--radius-sm)',
+                                      borderLeft: '3px solid var(--primary-light)'
+                                    }}>
+                                      <span style={{ fontWeight: 700, fontSize: '0.78rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.2rem' }}>
+                                        {ans.evaluatorGroup}모둠의 답변
+                                      </span>
+                                      <span style={{ color: 'var(--text-main)', fontSize: '0.85rem', lineHeight: '1.5', whiteSpace: 'pre-wrap' }}>
+                                        {ans.text}
+                                      </span>
+                                    </div>
+                                  ))
+                                ) : (
+                                  <p style={{ color: '#aaa', fontSize: '0.85rem', paddingLeft: '0.5rem', margin: 0 }}>
+                                    아직 답변이 없습니다.
+                                  </p>
+                                )}
+                              </div>
                             </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* 전체 대상 질문 답변 모아보기 */}
+              {activeEval.allQuestions && activeEval.allQuestions.length > 0 && (
+                <div style={{
+                  marginTop: '2rem',
+                  padding: '1.5rem',
+                  background: 'var(--white)',
+                  borderRadius: 'var(--radius-lg)',
+                  border: '1px solid var(--border-color)',
+                  boxShadow: 'var(--shadow-sm)'
+                }}>
+                  <h3 style={{ color: 'var(--primary-dark)', marginBottom: '1.2rem', fontSize: '1.2rem', borderBottom: '2px solid var(--secondary-color)', paddingBottom: '0.5rem' }}>
+                    전체 대상 질문 답변 모아보기
+                  </h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+                    {activeEval.allQuestions.map((qText, qIdx) => {
+                      const answers = submissions
+                        .filter(sub => sub.allFeedbacks && sub.allFeedbacks[qIdx])
+                        .map(sub => ({
+                          evaluatorGroup: sub.evaluatorGroup,
+                          text: sub.allFeedbacks[qIdx]
+                        }));
+
+                      return (
+                        <div key={qIdx} style={{
+                          background: 'var(--bg-color)',
+                          padding: '1.2rem',
+                          borderRadius: 'var(--radius-md)',
+                          border: '1px solid #e0e0e0'
+                        }}>
+                          <h5 style={{ fontWeight: 700, color: 'var(--primary-dark)', marginBottom: '0.8rem', fontSize: '0.95rem' }}>
+                            질문: {qText}
+                          </h5>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                            {answers.length > 0 ? (
+                              answers.map((ans, i) => (
+                                <div key={i} style={{
+                                  padding: '0.6rem 0.8rem',
+                                  background: 'var(--white)',
+                                  borderRadius: 'var(--radius-sm)',
+                                  borderLeft: '3px solid var(--primary-color)',
+                                  boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
+                                }}>
+                                  <span style={{ fontWeight: 700, fontSize: '0.78rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.2rem' }}>
+                                    {ans.evaluatorGroup}모둠의 답변
+                                  </span>
+                                  <span style={{ color: 'var(--text-main)', fontSize: '0.88rem', lineHeight: '1.5', whiteSpace: 'pre-wrap' }}>
+                                    {ans.text}
+                                  </span>
+                                </div>
+                              ))
+                            ) : (
+                              <p style={{ color: '#aaa', fontSize: '0.85rem', paddingLeft: '0.5rem' }}>
+                                아직 답변이 없습니다.
+                              </p>
+                            )}
                           </div>
-                        ));
-                      return cards.length > 0 ? cards : (
-                        <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '1.5rem' }}>
-                          아직 작성된 피드백이 없습니다.
-                        </p>
+                        </div>
                       );
-                    })()}
+                    })}
                   </div>
                 </div>
               )}
             </div>
-
 
             <div className="button-group" style={{ marginTop: '3rem' }}>
               <button className="btn-outline" onClick={goHome}>홈으로 나가기</button>
