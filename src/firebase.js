@@ -1,20 +1,19 @@
-import { initializeApp } from "firebase/app";
-import { getDatabase, ref, set, get, push, onValue, remove, update } from "firebase/database";
+import { initializeApp } from 'firebase/app';
+import { getDatabase, ref, set, get, push, onValue, remove, update } from 'firebase/database';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyB6ondc3ixzX9FNwB_RzcdmQyCW0RSaeVg",
-  authDomain: "studio-6524324946-b6314.firebaseapp.com",
-  databaseURL: "https://studio-6524324946-b6314-default-rtdb.firebaseio.com",
-  projectId: "studio-6524324946-b6314",
-  storageBucket: "studio-6524324946-b6314.firebasestorage.app",
-  messagingSenderId: "1095632072504",
-  appId: "1:1095632072504:web:15a2f20910146f06195bcd",
-  measurementId: "G-JTN8QNS13V"
+    apiKey: 'AIzaSyA7Cd-rI9YMgADoXG32WoSHJAcwfZEemws',
+    authDomain: 'chorok-8433b.firebaseapp.com',
+    databaseURL: 'https://chorok-8433b-default-rtdb.firebaseio.com',
+    projectId: 'chorok-8433b',
+    storageBucket: 'chorok-8433b.firebasestorage.app',
+    messagingSenderId: '862591960042',
+    appId: '1:862591960042:web:e2abf060f0e9a340b1a893'
 };
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-console.log("✅ Firebase Realtime Database 초기화 완료");
+console.log('✅ Firebase Realtime Database 초기화 완료');
 
 export { db, ref, set, get, push, onValue, remove, update };
