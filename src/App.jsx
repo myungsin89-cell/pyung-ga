@@ -245,7 +245,7 @@ export function App() {
             }
         });
 
-        return results.sort((a, b) => a.groupIdx - b.groupIdx);
+        return sorted;
     };
 
     // 종합 성적표 및 서술형 피드백을 단일 XLSX 파일로 통합 다운로드 (멀티 시트)
@@ -699,6 +699,27 @@ export function App() {
             return () => unsubscribe();
         }
     }, [view, joinCode]);
+
+    // 대시보드 강제 새로고침 (Firebase 수동 다시 불러오기)
+    const handleRefreshDashboard = async () => {
+        if (!joinCode) return;
+        setIsLoading(true);
+        try {
+            const snapshot = await get(ref(db, `evaluations/${joinCode}/submissions`));
+            const subs = [];
+            if (snapshot.exists()) {
+                snapshot.forEach((child) => {
+                    subs.push({ id: child.key, ...child.val() });
+                });
+            }
+            setSubmissions(subs);
+            alert('🔄 최신 평가 데이터를 성공적으로 불러왔습니다!');
+        } catch (error) {
+            alert('새로고침 중 오류가 발생했습니다: ' + error.message);
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     // ---- 평가 마감 ----
     const handleCloseEval = async () => {
@@ -1326,12 +1347,58 @@ export function App() {
                             <span className='badge'>코드: {joinCode}</span>
                         </div>
 
-                        <div className='dashboard-stats'>
-                            <div className='stat-card'>
-                                <span className='stat-value'>{submissions.length} / {activeEval.groupCount}</span>
-                                <span className='stat-label'>제출 완료 모둠</span>
+                        <div className='dashboard-stats' style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+                            gap: '1.5rem',
+                            alignItems: 'center'
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+                                <div style={{ position: 'relative', width: '90px', height: '90px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                    <svg width="90" height="90" style={{ transform: 'rotate(-90deg)' }}>
+                                        {/* 배경 원 */}
+                                        <circle
+                                            cx="45"
+                                            cy="45"
+                                            r="38"
+                                            fill="transparent"
+                                            stroke="var(--secondary-color)"
+                                            strokeWidth="8"
+                                        />
+                                        {/* 진행 원 */}
+                                        <circle
+                                            cx="45"
+                                            cy="45"
+                                            r="38"
+                                            fill="transparent"
+                                            stroke="var(--primary-color)"
+                                            strokeWidth="8"
+                                            strokeDasharray={2 * Math.PI * 38}
+                                            strokeDashoffset={activeEval.groupCount > 0 ? (2 * Math.PI * 38) * (1 - (submissions.length / activeEval.groupCount)) : (2 * Math.PI * 38)}
+                                            strokeLinecap="round"
+                                            style={{ transition: 'stroke-dashoffset 0.6s ease-in-out' }}
+                                        />
+                                    </svg>
+                                    <div style={{ position: 'absolute', fontSize: '1.05rem', fontWeight: 800, color: 'var(--primary-dark)' }}>
+                                        {activeEval.groupCount > 0 ? Math.round((submissions.length / activeEval.groupCount) * 100) : 0}%
+                                    </div>
+                                </div>
+                                <div className='stat-card'>
+                                    <span className='stat-value'>{submissions.length} / {activeEval.groupCount}</span>
+                                    <span className='stat-label'>제출 완료 모둠</span>
+                                </div>
                             </div>
-                            <div className='stat-card'>
+                            <div className='stat-card' style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                textAlign: 'center',
+                                borderLeft: window.innerWidth > 640 ? '1px solid var(--border-color)' : 'none',
+                                paddingTop: window.innerWidth > 640 ? '0' : '1rem',
+                                paddingLeft: window.innerWidth > 640 ? '2rem' : '0',
+                                borderTop: window.innerWidth > 640 ? 'none' : '1px solid var(--border-color)'
+                            }}>
                                 <span className='stat-value' style={{ color: 'var(--primary-light)' }}>{submissions.length * activeEval.criteria.length}</span>
                                 <span className='stat-label'>누적 평가 항목 수</span>
                             </div>
@@ -1384,7 +1451,28 @@ export function App() {
                                     boxShadow: 'var(--shadow-sm)',
                                     overflowX: 'auto'
                                 }}>
-                                    <h4 style={{ marginBottom: '0.25rem', color: 'var(--primary-dark)', fontSize: '1.15rem' }}>📊 성적 종합 분석표</h4>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                                        <h4 style={{ color: 'var(--primary-dark)', fontSize: '1.15rem', margin: 0 }}>📊 성적 종합 분석표</h4>
+                                        <button
+                                            type='button'
+                                            onClick={handleRefreshDashboard}
+                                            className='btn-secondary btn-small'
+                                            style={{
+                                                padding: '0.35rem 0.75rem',
+                                                fontSize: '0.8rem',
+                                                gap: '4px',
+                                                borderRadius: '8px',
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                minHeight: 'auto',
+                                                cursor: 'pointer'
+                                            }}
+                                            disabled={isLoading}
+                                        >
+                                            🔄 새로고침
+                                        </button>
+                                    </div>
                                     <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '1.2rem' }}>
                                         각 모둠이 획득한 평가 기준별 평균 점수 및 종합 순위입니다. (한글 깨짐 없는 엑셀 다운로드 가능)
                                     </p>
