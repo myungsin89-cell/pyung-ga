@@ -1406,50 +1406,16 @@ export function App() {
 
 
                         <div style={{ marginTop: '2.5rem' }}>
-                            <h3 style={{ marginBottom: '1rem', color: 'var(--primary-dark)' }}>모둠별 누적 획득 점수</h3>
-                            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
-                                카드를 클릭하면 해당 모둠의 피드백을 볼 수 있습니다.
-                            </p>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '1rem' }}>
-                                {calculateTotalScores().map((totalScore, idx) => {
-                                    const isSelected = selectedFeedbackGroup === idx;
-                                    return (
-                                        <div
-                                            key={idx}
-                                            onClick={() => setSelectedFeedbackGroup(isSelected ? null : idx)}
-                                            style={{
-                                                padding: '1rem',
-                                                background: isSelected ? 'var(--primary-color)' : 'var(--white)',
-                                                border: isSelected ? '2px solid var(--primary-dark)' : '1px solid var(--border-color)',
-                                                borderRadius: 'var(--radius-md)',
-                                                textAlign: 'center',
-                                                boxShadow: isSelected ? 'var(--shadow-lg)' : 'var(--shadow-sm)',
-                                                cursor: 'pointer',
-                                                transition: 'all 0.25s',
-                                                transform: isSelected ? 'translateY(-3px)' : 'none'
-                                            }}
-                                        >
-                                            <div style={{ fontWeight: 600, color: isSelected ? 'rgba(255,255,255,0.85)' : 'var(--text-muted)', marginBottom: '0.25rem', fontSize: '0.9rem' }}>
-                                                {idx + 1}모둠
-                                            </div>
-                                            <div style={{ fontSize: '1.8rem', fontWeight: 700, color: isSelected ? 'var(--white)' : 'var(--primary-color)' }}>
-                                                {totalScore}점
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-
-                            {/* 종합 성적표 테이블 (대시보드 하단에 분석적으로 표시) */}
+                            {/* 종합 성적표 테이블 (대시보드 상단에 분석적으로 표시) */}
                             {submissions.length > 0 && (
                                 <div style={{
-                                    marginTop: '2.5rem',
                                     background: 'var(--white)',
                                     border: '1px solid var(--border-color)',
                                     borderRadius: 'var(--radius-lg)',
                                     padding: '1.5rem',
                                     boxShadow: 'var(--shadow-sm)',
-                                    overflowX: 'auto'
+                                    overflowX: 'auto',
+                                    marginBottom: '2.5rem'
                                 }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
                                         <h4 style={{ color: 'var(--primary-dark)', fontSize: '1.15rem', margin: 0 }}>📊 성적 종합 분석표</h4>
@@ -1508,6 +1474,43 @@ export function App() {
                                     </table>
                                 </div>
                             )}
+
+                            {/* 모둠별 누적 획득 점수 카드 (테이블 하단, 상세 결과 바로 위로 이동) */}
+                            <div>
+                                <h3 style={{ marginBottom: '0.5rem', color: 'var(--primary-dark)' }}>모둠별 누적 획득 점수</h3>
+                                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
+                                    카드를 클릭하면 아래에서 해당 모둠의 평가 상세 내역과 서술형 의견을 바로 볼 수 있습니다.
+                                </p>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '1rem' }}>
+                                    {calculateTotalScores().map((totalScore, idx) => {
+                                        const isSelected = selectedFeedbackGroup === idx;
+                                        return (
+                                            <div
+                                                key={idx}
+                                                onClick={() => setSelectedFeedbackGroup(isSelected ? null : idx)}
+                                                style={{
+                                                    padding: '1rem',
+                                                    background: isSelected ? 'var(--primary-color)' : 'var(--white)',
+                                                    border: isSelected ? '2px solid var(--primary-dark)' : '1px solid var(--border-color)',
+                                                    borderRadius: 'var(--radius-md)',
+                                                    textAlign: 'center',
+                                                    boxShadow: isSelected ? 'var(--shadow-lg)' : 'var(--shadow-sm)',
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.25s',
+                                                    transform: isSelected ? 'translateY(-3px)' : 'none'
+                                                }}
+                                            >
+                                                <div style={{ fontWeight: 600, color: isSelected ? 'rgba(255,255,255,0.85)' : 'var(--text-muted)', marginBottom: '0.25rem', fontSize: '0.9rem' }}>
+                                                    {idx + 1}모둠
+                                                </div>
+                                                <div style={{ fontSize: '1.8rem', fontWeight: 700, color: isSelected ? 'var(--white)' : 'var(--primary-color)' }}>
+                                                    {totalScore}점
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
 
                             {/* 피드백 및 점수 상세 패널: 카드 클릭 시 아래에 펼침 */}
                             {selectedFeedbackGroup !== null && (
