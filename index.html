@@ -4,6 +4,13 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>모둠 평가 앱</title>
+    <!-- PWA 매니페스트 및 메타 설정 -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#16a34a" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+    
     <!-- Google Fonts 및 한글 폰트 추가 -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -14,5 +21,15 @@
 <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
+    <!-- PWA 서비스 워커 등록 -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then((reg) => console.log('서비스 워커가 정상 등록되었습니다.', reg.scope))
+                    .catch((err) => console.error('서비스 워커 등록 실패:', err));
+            });
+        }
+    </script>
 </body>
 </html>
