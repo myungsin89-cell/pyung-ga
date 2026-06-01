@@ -129,6 +129,48 @@ export function App() {
     const [existingSubmission, setExistingSubmission] = useState(null);
     const [existingSubmissionKey, setExistingSubmissionKey] = useState(null); // Firebase key for update
 
+    // ---- PWA 브라우저 설치 프로모션 상태 ----
+    const [deferredPrompt, setDeferredPrompt] = useState(null);
+    const [showInstallBtn, setShowInstallBtn] = useState(false);
+
+    useEffect(() => {
+        const handleBeforeInstallPrompt = (e) => {
+            e.preventDefault();
+            setDeferredPrompt(e);
+            setShowInstallBtn(true);
+        };
+        window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+        // 앱이 이미 설치되어 실행되었을 때(appinstalled) 감지
+        const handleAppInstalled = () => {
+            console.log('PWA가 성공적으로 설치되었습니다.');
+            setShowInstallBtn(false);
+            setDeferredPrompt(null);
+        };
+        window.addEventListener('appinstalled', handleAppInstalled);
+
+        // standalone 모드로 이미 실행중일 경우(이미 설치하여 실행한 경우) 버튼 숨김
+        if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone) {
+            setShowInstallBtn(false);
+        }
+
+        return () => {
+            window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+            window.removeEventListener('appinstalled', handleAppInstalled);
+        };
+    }, []);
+
+    const handleInstallClick = async () => {
+        if (!deferredPrompt) return;
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === 'accepted') {
+            console.log('사용자가 PWA 설치를 수락했습니다.');
+        }
+        setDeferredPrompt(null);
+        setShowInstallBtn(false);
+    };
+
     // ---- 최근 개설한 평가 정보 리스트 로컬 상태 ----
     const [myEvals, setMyEvals] = useState([]);
 
@@ -751,6 +793,37 @@ export function App() {
         <div className='app-container'>
             <header className='app-header'>
                 <h1 onClick={goHome} style={{ cursor: 'pointer' }}>모둠 평가 앱</h1>
+                {showInstallBtn && (
+                    <button 
+                        type='button'
+                        onClick={handleInstallClick}
+                        style={{
+                            padding: '0.4rem 0.85rem',
+                            fontSize: '0.85rem',
+                            background: 'var(--secondary-color)',
+                            color: 'var(--primary-dark)',
+                            border: '1px solid var(--primary-light)',
+                            borderRadius: '20px',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            fontWeight: 600,
+                            boxShadow: 'var(--shadow-sm)',
+                            transition: 'all 0.2s'
+                        }}
+                        onMouseEnter={e => {
+                            e.currentTarget.style.background = '#dcfce7';
+                            e.currentTarget.style.transform = 'translateY(-1px)';
+                        }}
+                        onMouseLeave={e => {
+                            e.currentTarget.style.background = 'var(--secondary-color)';
+                            e.currentTarget.style.transform = 'translateY(0)';
+                        }}
+                    >
+                        📲 앱 다운로드
+                    </button>
+                )}
             </header>
 
             <main className='app-content'>
